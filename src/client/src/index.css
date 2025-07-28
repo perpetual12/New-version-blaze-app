@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background-light text-gray-900 dark:bg-background-dark dark:text-white;
+  }
+}
+
+@layer components {
+  .container-custom {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-dark text-white px-6 py-2 rounded-md hover:bg-primary-light transition-all duration-300;
+  }
+  
+  .btn-secondary {
+    @apply bg-transparent border border-primary-dark text-primary-dark px-6 py-2 rounded-md hover:bg-primary-dark hover:text-white transition-all duration-300;
+  }
+  
+  .nav-link-active {
+    color: #3B82F6 !important; 
+  }
+  
+  .section {
+    @apply py-16 md:py-24;
+  }
+  
+  .fade-in {
+    @apply animate-fade-in;
+  }
+  
+  .fade-in-up {
+    @apply animate-fade-in-up;
+  }
+}

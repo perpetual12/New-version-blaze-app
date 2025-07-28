@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: blazetrad-server
+    env: node
+    plan: free
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  - type: staticsite
+    name: blazetrad-client
+    env: static
+    plan: free
+    buildCommand: "cd src/client && npm install && npm run build"
+    staticPublishPath: "./src/client/build"
