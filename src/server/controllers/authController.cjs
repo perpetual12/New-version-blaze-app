@@ -50,18 +50,29 @@ exports.signup = async (req, res) => {
 
     // Send verification email in the background (fire and forget)
     (async () => {
-      const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
-      const logoUrl = `${req.protocol}://${req.get('host')}/logo.png`;
-      const emailHtml = getVerificationEmailTemplate(user.fullName, verificationUrl, logoUrl);
       try {
-        await sendEmail({
+        const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
+        const logoUrl = `${req.protocol}://${req.get('host')}/logo.png`;
+        const emailHtml = getVerificationEmailTemplate(user.fullName, verificationUrl, logoUrl);
+        
+        console.log('Sending verification email to:', user.email);
+        
+        const result = await sendEmail({
           to: user.email,
           subject: 'Verify Your BlazeTrade Account',
           html: emailHtml,
+          text: `Hello ${user.fullName || 'there'}, please verify your email by clicking this link: ${verificationUrl}`
         });
+        
+        console.log('Verification email sent successfully:', result);
       } catch (err) {
-        console.error('Error sending verification email in background:', err);
-        // In a real app, you would add this failed job to a queue for retrying
+        console.error('Error in background email sending:', {
+          error: err.message,
+          stack: err.stack,
+          userId: user._id,
+          email: user.email
+        });
+        // In a production app, you would add this failed job to a queue for retrying
       }
     })();
 
