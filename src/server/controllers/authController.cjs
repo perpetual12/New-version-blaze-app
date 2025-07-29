@@ -27,12 +27,14 @@ const sendVerificationEmail = async (email, username, verificationToken) => {
 // @route   POST /api/auth/signup
 // @access  Public
 const signup = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
   const { username, email, password, fullName } = req.body;
+  
+  console.log('Signup attempt with data:', { 
+    username, 
+    email, 
+    hasPassword: !!password,
+    fullName 
+  });
   const session = await mongoose.startSession();
   
   try {

@@ -9,9 +9,28 @@ const authController = require('../controllers/authController.cjs');
 router.post(
   '/signup',
   [
-    check('username', 'Username is required').not().isEmpty(),
-    check('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 })
+    check('username', 'Username is required').trim().notEmpty(),
+    check('email', 'Please include a valid email').isEmail(),
+    check('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 }),
+    check('confirmPassword').custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    }),
+    check('terms', 'You must accept the terms and conditions').equals('true')
   ],
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    next();
+  },
   authController.signup
 );
 

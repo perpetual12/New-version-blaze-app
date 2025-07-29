@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import self-hosted fonts */
+@import url('./styles/fonts.css');
+
 @layer base {
   html {
     scroll-behavior: smooth;
