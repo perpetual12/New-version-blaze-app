@@ -32,6 +32,33 @@ router.post(
   authController.login
 );
 
+// @route   POST api/auth/forgot-password
+// @desc    Send password reset token to user's email
+// @access  Public
+router.post(
+  '/forgot-password',
+  [
+    check('email', 'Please provide a valid email').isEmail()
+  ],
+  authController.forgotPassword
+);
+
+// @route   GET api/auth/verify-reset-token/:token
+// @desc    Verify password reset token
+// @access  Public
+router.get('/verify-reset-token/:token', authController.verifyResetToken);
+
+// @route   PATCH api/auth/reset-password/:token
+// @desc    Reset user password with token
+// @access  Public
+router.patch(
+  '/reset-password/:token',
+  [
+    check('password', 'Please provide a password with at least 6 characters').isLength({ min: 6 })
+  ],
+  authController.resetPassword
+);
+
 // @route   GET api/auth/user/:id
 // @desc    Get user by ID
 // @access  Private

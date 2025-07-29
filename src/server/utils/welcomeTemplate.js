@@ -5,7 +5,7 @@ const getWelcomeEmailTemplate = (fullName, logoUrl, contactEmail) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Welcome to BlazeTrade</title>
+      <title>Welcome to Blaze Trade</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
         .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -53,7 +53,10 @@ const getWelcomeEmailTemplate = (fullName, logoUrl, contactEmail) => {
   `;
 };
 
-const getVerificationEmailTemplate = (fullName, verificationUrl, logoUrl) => {
+const getVerificationEmailTemplate = (fullName, verificationToken, logoUrl) => {
+  // Ensure the verification URL is properly formatted
+  const baseUrl = process.env.CLIENT_URL || 'https://blazetrade.de';
+  const verificationUrl = `${baseUrl}/verify-email/${verificationToken}`;
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -82,11 +85,15 @@ const getVerificationEmailTemplate = (fullName, verificationUrl, logoUrl) => {
           <h1>Verify Your Email Address</h1>
           <p>Hi ${fullName},</p>
           <p>Thanks for signing up for BlazeTrade! To complete your registration, please click the button below to verify your email address.</p>
-          <a href="${verificationUrl}" class="button">Verify My Account</a>
-          <p>This link will expire in one hour. If you did not sign up for a BlazeTrade account, you can safely ignore this email.</p>
+          <a href="${verificationUrl}" class="button" style="display: inline-block; background-color: #3B82F6; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0;">Verify My Email Address</a>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #3B82F6;">${verificationUrl}</p>
+          <p>This link will expire in 24 hours. If you did not sign up for a BlazeTrade account, you can safely ignore this email.</p>
+          <p>If the button doesn't work, please ensure you're using a modern web browser and that you haven't already verified your email.</p>
+          <p>Need help? <a href="${baseUrl}/contact" style="color: #3B82F6;">Contact our support team</a> or reply to this email.</p>
         </div>
         <div class="footer">
-          <p>If you have any questions, please contact our support team.</p>
+          <p>If you have any questions, please contact our support team at <a href="mailto:blazetrade@blazetrade.de" style="color: #3B82F6;">blazetrade@blazetrade.de</a>.</p>
           <p>&copy; ${new Date().getFullYear()} BlazeTrade. All rights reserved.</p>
         </div>
       </div>

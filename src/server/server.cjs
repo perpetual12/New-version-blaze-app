@@ -44,6 +44,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use('/api/auth', require('./routes/auth.cjs'));
+app.use('/api', require('./routes/verification.cjs')); 
 app.use('/api/chatbot', require('./routes/chatbotRoutes.cjs'));
 app.use('/api/contact', require('./routes/contactRoutes.cjs'));
 
