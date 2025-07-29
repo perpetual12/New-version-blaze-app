@@ -1,11 +1,31 @@
 const { Resend } = require('resend');
 const dotenv = require('dotenv');
 
+// Initialize logging
+const log = (message, data = null, level = 'info') => {
+  const timestamp = new Date().toISOString();
+  const logEntry = { timestamp, level, message };
+  
+  if (data) {
+    logEntry.data = data;
+  }
+  
+  // In production, you might want to send this to a logging service
+  console.log(`[${timestamp}] ${level.toUpperCase()}: ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  
+  return logEntry;
+};
+
 dotenv.config();
 
-// Debug: Log environment variables (remove in production)
-console.log('Resend API Key exists:', !!process.env.RESEND_API_KEY);
-console.log('Email From:', process.env.EMAIL_FROM);
+// Log environment configuration
+log('Email Service Initializing...');
+log('Environment Variables Check', {
+  NODE_ENV: process.env.NODE_ENV,
+  RESEND_API_KEY: process.env.RESEND_API_KEY ? '***' + process.env.RESEND_API_KEY.slice(-4) : 'NOT SET',
+  EMAIL_FROM: process.env.EMAIL_FROM,
+  CLIENT_URL: process.env.CLIENT_URL
+});
 
 // Initialize Resend with your API key
 if (!process.env.RESEND_API_KEY) {
@@ -16,11 +36,14 @@ if (!process.env.RESEND_API_KEY) {
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendEmail = async (options) => {
-  console.log('Sending email with options:', {
+  const emailId = `email_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+  
+  log(`[${emailId}] Starting email send process`, {
     to: options.to,
     subject: options.subject,
     from: process.env.EMAIL_FROM,
-    hasHtml: !!options.html
+    hasHtml: !!options.html,
+    timestamp: new Date().toISOString()
   });
 
   try {
@@ -59,28 +82,63 @@ const sendEmail = async (options) => {
     const { data, error } = await resend.emails.send(emailData);
 
     if (error) {
-      console.error('Resend API Error:', {
+      const errorDetails = {
+        emailId,
         status: error.statusCode,
         name: error.name,
         message: error.message,
-        details: error
-      });
+        details: error,
+        timestamp: new Date().toISOString()
+      };
+      
+      log(`[${emailId}] Email sending failed`, errorDetails, 'error');
+      
+      // Log detailed error information for debugging
+      if (error.response) {
+        log(`[${emailId}] Resend API Error Response`, {
+          status: error.response.status,
+          headers: error.response.headers,
+          data: error.response.data
+        }, 'error');
+      }
+      
       throw new Error(`Failed to send email: ${error.message}`);
     }
 
-    console.log('Email sent successfully. Response:', data);
+    // Log successful email delivery
+    const successData = { 
+      emailId,
+      messageId: data.id,
+      to: options.to,
+      subject: options.subject,
+      timestamp: new Date().toISOString(),
+      response: data
+    };
+    
+    log(`[${emailId}] Email sent successfully`, successData, 'info');
+    
     return { 
       success: true, 
       messageId: data.id,
       data 
     };
   } catch (error) {
-    console.error('Error in sendEmail:', {
+    const errorData = {
+      emailId,
       message: error.message,
       stack: error.stack,
       name: error.name,
       code: error.code,
-    });
+      timestamp: new Date().toISOString()
+    };
+    
+    log(`[${emailId}] Unhandled error in sendEmail`, errorData, 'error');
+    
+    // For production, you might want to send this to an error tracking service
+    if (process.env.NODE_ENV === 'production') {
+      // Example: sendToErrorTrackingService(errorData);
+    }
+    
     throw error; // Re-throw to be handled by the calling function
   }
 };

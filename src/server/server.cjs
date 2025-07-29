@@ -47,6 +47,12 @@ app.use('/api/auth', require('./routes/auth.cjs'));
 app.use('/api/chatbot', require('./routes/chatbotRoutes.cjs'));
 app.use('/api/contact', require('./routes/contactRoutes.cjs'));
 
+// Test routes - only available in development
+if (process.env.NODE_ENV !== 'production') {
+  console.log('Test routes enabled');
+  app.use('/api/test', require('./routes/test.cjs'));
+}
+
 // Serve React App in Production
 if (process.env.NODE_ENV === 'production') {
   const buildPath = path.join(__dirname, '..', 'client', 'build');
