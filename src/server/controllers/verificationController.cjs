@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const User = require('../models/User.cjs');
 const UnverifiedUser = require('../models/UnverifiedUser.cjs');
 const bcrypt = require('bcryptjs');
@@ -52,7 +53,7 @@ exports.verifyEmail = async (req, res) => {
     (async () => {
       try {
         const logoUrl = `${process.env.SERVER_URL || 'http://localhost:3000'}/logo.png`;
-        const contactEmail = process.env.CONTACT_EMAIL || 'support@blazetrade.de';
+        const contactEmail = process.env.CONTACT_EMAIL || 'blazetrade@blazetrade.de';
         const emailHtml = getWelcomeEmailTemplate(
           user.fullName || user.username,
           logoUrl,
