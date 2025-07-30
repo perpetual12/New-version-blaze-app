@@ -10,17 +10,65 @@ const Signup = () => {
   const [serverError, setServerError] = useState('');
   const password = watch('password');
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingUser, setExistingUser] = useState({ email: '', username: '' });
+
   const onSubmit = async (data) => {
     try {
-      await axios.post('/api/auth/signup', data);
-      navigate('/check-email');
+      setIsSubmitting(true);
+      setServerError('');
+      setExistingUser({ email: '', username: '' });
+      
+      console.log('Sending signup request with data:', data);
+      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/signup`;
+      console.log('API URL:', apiUrl);
+      
+      const response = await axios({
+        method: 'post',
+        url: apiUrl,
+        data: data,
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: 10000 // 10 seconds timeout
+      });
+      
+      navigate('/check-email', { state: { email: data.email } });
     } catch (error) {
-      if (error.response && error.response.data.msg) {
-        setServerError(error.response.data.msg);
-      } else {
-        setServerError('An unexpected error occurred. Please try again.');
-      }
       console.error('Signup failed:', error);
+      
+      if (error.response) {
+        // Handle 400 Bad Request (user already exists)
+        if (error.response.status === 400) {
+          const errorMessage = error.response.data.message || error.response.data.msg;
+          
+          // Check if email or username already exists
+          if (errorMessage.includes('email')) {
+            setExistingUser(prev => ({ ...prev, email: 'This email is already registered' }));
+          } 
+          if (errorMessage.includes('username')) {
+            setExistingUser(prev => ({ ...prev, username: 'This username is already taken' }));
+          }
+          
+          setServerError(errorMessage);
+          return;
+        }
+        
+        // Handle other error responses
+        setServerError(error.response.data.message || 
+                      error.response.data.msg || 
+                      'An error occurred during signup. Please try again.');
+      } else if (error.request) {
+        // The request was made but no response was received
+        setServerError('No response from server. Please check your connection.');
+      } else {
+        // Something happened in setting up the request
+        setServerError('An error occurred. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -36,23 +84,56 @@ const Signup = () => {
             {serverError && <p className="mb-4 text-sm text-center text-red-500 bg-red-500/10 p-3 rounded-lg">{serverError}</p>}
             
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-400">Username</label>
+              <div className="mb-4">
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  Username
+                </label>
                 <input
                   type="text"
-                  {...register('username', { required: 'Username is required' })}
-                  className="w-full px-4 py-3 mt-1 bg-blue-900 border border-blue-800 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white"
+                  {...register('username', { 
+                    required: 'Username is required',
+                    minLength: {
+                      value: 3,
+                      message: 'Username must be at least 3 characters'
+                    },
+                    maxLength: {
+                      value: 20,
+                      message: 'Username must be less than 20 characters'
+                    },
+                    pattern: {
+                      value: /^[a-zA-Z0-9_]+$/,
+                      message: 'Username can only contain letters, numbers, and underscores'
+                    }
+                  })}
+                  className={`w-full px-4 py-3 bg-gray-800 border ${
+                    errors.username || existingUser.username ? 'border-red-500' : 'border-gray-700'
+                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                   placeholder="Choose a username"
                 />
-                {errors.username && <p className="mt-2 text-sm text-red-500">{errors.username.message}</p>}
+                {errors.username && (
+                  <p className="mt-1 text-sm text-red-400">{errors.username.message}</p>
+                )}
+                {existingUser.username && !errors.username && (
+                  <p className="mt-1 text-sm text-red-400">{existingUser.username}</p>
+                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400">Email</label>
+              <div className="mb-4">
+                <label className="block text-gray-300 text-sm font-medium mb-2">
+                  Email
+                </label>
                 <input
                   type="email"
-                  {...register('email', { required: 'Email is required', pattern: { value: /\S+@\S+\.\S+/, message: 'Email is invalid' } })}
-                  className="w-full px-4 py-3 mt-1 bg-blue-900 border border-blue-800 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white"
+                  {...register('email', { 
+                    required: 'Email is required',
+                    pattern: {
+                      value: /\S+@\S+\.\S+/, 
+                      message: 'Email is invalid'
+                    }
+                  })}
+                  className={`w-full px-4 py-3 bg-gray-800 border ${
+                    errors.email || existingUser.email ? 'border-red-500' : 'border-gray-700'
+                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                   placeholder="Enter your email"
                 />
                 {errors.email && <p className="mt-2 text-sm text-red-500">{errors.email.message}</p>}

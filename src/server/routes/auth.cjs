@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { check } = require('express-validator');
+const { check, validationResult } = require('express-validator');
 const authController = require('../controllers/authController.cjs');
 
 // @route   POST api/auth/signup
@@ -45,7 +45,22 @@ router.get('/verify-email/:token', authController.verifyEmail);
 router.post(
   '/login',
   [
-    check('username', 'Username is required').exists(),
+    // Check that at least one of email or username is provided
+    (req, res, next) => {
+      const { email, username } = req.body;
+      if (!email && !username) {
+        return res.status(400).json({
+          success: false,
+          errors: [{
+            msg: 'Either email or username is required',
+            param: 'email_or_username',
+            location: 'body'
+          }]
+        });
+      }
+      next();
+    },
+    // Validate password is provided
     check('password', 'Password is required').exists()
   ],
   authController.login

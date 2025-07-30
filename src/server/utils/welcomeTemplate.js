@@ -1,4 +1,7 @@
-const getWelcomeEmailTemplate = (fullName, logoUrl, contactEmail) => {
+const getWelcomeEmailTemplate = (fullName, logoUrl) => {
+  // Ensure we have a fallback for the logo URL
+  const logo = logoUrl || 'https://blazetrade.de/logo.png';
+  const contactEmail = 'blazetrade@blazetrade.de';
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -26,12 +29,12 @@ const getWelcomeEmailTemplate = (fullName, logoUrl, contactEmail) => {
     <body>
       <div class="container">
         <div class="header">
-          <img src="${logoUrl}" alt="BlazeTrade Logo">
+          <img src="${logo}" alt="BlazeTrade Logo" style="max-width: 200px; height: auto;">
         </div>
         <div class="content">
           <h1>Welcome, ${fullName}!</h1>
           <p>We are thrilled to have you join the BlazeTrade community. You are now ready to explore a fast, secure, and reliable trading experience.</p>
-          <a href="#" class="cta-button">Start Trading Now</a>
+          <a href="https://blazetrade.de" class="cta-button" target="_blank" rel="noopener noreferrer">Start Trading Now</a>
           <div class="features">
             <h2>Your Trading Options:</h2>
             <ul>
@@ -54,8 +57,10 @@ const getWelcomeEmailTemplate = (fullName, logoUrl, contactEmail) => {
 };
 
 const getVerificationEmailTemplate = (fullName, verificationToken, logoUrl) => {
-  // Ensure the verification URL is properly formatted
-  const baseUrl = process.env.CLIENT_URL || 'https://blazetrade.de';
+  // Ensure the verification URL is properly formatted with production domain
+  const baseUrl = 'https://blazetrade.de';
+  // Ensure we have a fallback for the logo URL
+  const logo = logoUrl || 'https://blazetrade.de/logo.png';
   const verificationUrl = `${baseUrl}/verify-email/${verificationToken}`;
   return `
     <!DOCTYPE html>
@@ -79,7 +84,7 @@ const getVerificationEmailTemplate = (fullName, verificationToken, logoUrl) => {
     <body>
       <div class="container">
         <div class="header">
-          <img src="${logoUrl}" alt="BlazeTrade Logo">
+          <img src="${logo}" alt="BlazeTrade Logo" style="max-width: 200px; height: auto;">
         </div>
         <div class="content">
           <h1>Verify Your Email Address</h1>

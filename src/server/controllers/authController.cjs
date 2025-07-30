@@ -78,15 +78,19 @@ const signup = async (req, res) => {
           console.log('Sending verification email to:', email, 'with token:', verificationToken);
           const logoUrl = `${process.env.SERVER_URL || 'http://localhost:3000'}/logo.png`;
           
+          // Construct the verification URL
+          const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
+          
           // Pass the raw token to the template function
           const emailHtml = getVerificationEmailTemplate(
             fullName || username,
-            verificationToken, // Pass the raw token, not the URL
+            verificationToken,
             logoUrl
           );
           
           console.log(`Sending verification email to ${email}`);
           console.log('Verification token being used:', verificationToken);
+          console.log('Verification URL:', verificationUrl);
           
           await sendEmail({
             to: email,
@@ -135,37 +139,198 @@ const signup = async (req, res) => {
 // @route   GET /api/auth/verify-email/:token
 // @access  Public
 const verifyEmail = async (req, res) => {
+  console.log('\n=== Starting Email Verification ===');
+  console.log('Request received at:', new Date().toISOString());
+  
+  // Debug: Log environment
+  console.log('Environment:', process.env.NODE_ENV || 'development');
+  console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+  
+  const session = await mongoose.startSession();
+  console.log('MongoDB session created');
+  
   try {
-    console.log('Verification attempt with token:', req.params.token);
+    await session.startTransaction();
+    console.log('Transaction started');
+    
+    const rawToken = req.params.token;
+    console.log('Raw token from URL:', rawToken ? `[${rawToken.length} chars]` : 'Missing');
+    
+    if (!rawToken || rawToken.length < 10) {
+      const error = new Error('Invalid token format');
+      error.statusCode = 400;
+      throw error;
+    }
+    
+    // Hash the token to find the unverified user
+    console.log('Hashing token...');
     const hashedToken = crypto
       .createHash('sha256')
-      .update(req.params.token)
+      .update(rawToken)
       .digest('hex');
 
-    // Find user by token first, without checking expiration
-    const user = await User.findOne({ emailVerificationToken: hashedToken });
+    console.log('Hashed token:', hashedToken);
 
-    if (!user) {
-      console.log('Verification Failed: Token not found in database.');
-      return res.status(400).json({ msg: 'Invalid verification link.' });
+    // Check collections
+    const db = mongoose.connection.db;
+    const collections = await db.listCollections().toArray();
+    console.log('Available collections:', collections.map(c => c.name));
+    
+    // Debug: Check if collection exists and has documents
+    const unverifiedUsersCount = await UnverifiedUser.countDocuments({}).session(session);
+    console.log(`Unverified users in database: ${unverifiedUsersCount}`);
+    
+    // Find unverified user by token with detailed logging
+    console.log('Searching for unverified user with token...');
+    const query = {
+      verificationToken: hashedToken,
+      verificationExpires: { $gt: Date.now() }
+    };
+    
+    console.log('Query:', JSON.stringify(query, null, 2));
+    
+    const unverifiedUser = await UnverifiedUser
+      .findOne(query)
+      .session(session)
+      .lean();
+
+    console.log('Unverified user found:', unverifiedUser ? 'Yes' : 'No');
+    
+    if (unverifiedUser) {
+      console.log('User details:', {
+        email: unverifiedUser.email,
+        username: unverifiedUser.username,
+        tokenExpires: new Date(unverifiedUser.verificationExpires).toISOString(),
+        isExpired: unverifiedUser.verificationExpires < Date.now()
+      });
     }
 
-    // Now check if the token has expired
-    if (user.emailVerificationTokenExpires < Date.now()) {
-      console.log('Verification Failed: Token has expired.');
-      return res.status(400).json({ msg: 'Expired verification link. Please request a new one.' });
+    if (!unverifiedUser) {
+      // Try to find any user with this token (even expired) for debugging
+      const anyUser = await UnverifiedUser
+        .findOne({ verificationToken: hashedToken })
+        .session(session)
+        .lean();
+        
+      if (anyUser) {
+        console.log('Found user with matching token but it might be expired:', {
+          email: anyUser.email,
+          expires: new Date(anyUser.verificationExpires).toISOString(),
+          isExpired: anyUser.verificationExpires < Date.now()
+        });
+      }
+      
+      const error = new Error('Invalid or expired verification token');
+      error.statusCode = 400;
+      error.isExpired = anyUser && anyUser.verificationExpires < Date.now();
+      throw error;
     }
 
-    user.isVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationTokenExpires = undefined;
-    await user.save();
+    // Check if user already exists (in case of duplicate signup attempts)
+    const existingUser = await User.findOne({ 
+      $or: [
+        { email: unverifiedUser.email },
+        { username: unverifiedUser.username }
+      ]
+    }).session(session);
 
-    console.log('Verification successful for user:', user.email);
-    res.json({ msg: 'Email verification successful. You can now log in.' });
+    if (existingUser) {
+      console.log('User already exists with this email/username:', unverifiedUser.email);
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'An account with this email or username already exists.'
+      });
+    }
+
+    // Create new user in the main users collection
+    const newUser = new User({
+      username: unverifiedUser.username,
+      email: unverifiedUser.email,
+      password: unverifiedUser.password,
+      fullName: unverifiedUser.fullName,
+      isVerified: true
+    });
+
+    console.log('Creating new user with verification status:', {
+      email: newUser.email,
+      isVerified: newUser.isVerified,
+      userId: newUser._id
+    });
+
+    // Save the new user
+    const savedUser = await newUser.save({ session });
+    console.log('User saved successfully:', {
+      email: savedUser.email,
+      isVerified: savedUser.isVerified,
+      userId: savedUser._id
+    });
+    
+    // Remove the unverified user
+    await UnverifiedUser.findByIdAndDelete(unverifiedUser._id).session(session);
+    console.log('Unverified user record removed:', unverifiedUser._id);
+    
+    // Commit the transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    console.log('Verification successful for user:', unverifiedUser.email);
+    
+    // For API clients
+    if (req.accepts('json')) {
+      return res.status(200).json({
+        success: true,
+        message: 'Email verification successful',
+        msg: 'Email verification successful. You can now log in.'
+      });
+    }
+    
+    // For browser redirects
+    const loginUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?verified=true`;
+    res.redirect(loginUrl);
+    
   } catch (err) {
-    console.error('Verification Process Error:', err);
-    res.status(500).send('Server error during verification');
+    console.error('\n=== Verification Process Error ===');
+    console.error('Error:', err);
+    console.error('Stack:', err.stack);
+    
+    // Try to abort any open transaction
+    if (session.inTransaction()) {
+      try {
+        await session.abortTransaction();
+        console.log('Transaction aborted due to error');
+      } catch (abortErr) {
+        console.error('Error aborting transaction:', abortErr);
+      }
+    }
+    
+    // End the session if it exists
+    if (session) {
+      try {
+        await session.endSession();
+      } catch (endSessionErr) {
+        console.error('Error ending session:', endSessionErr);
+      }
+    }
+    
+    // Send appropriate error response
+    const statusCode = err.statusCode || 500;
+    const message = err.message || 'An error occurred during email verification';
+    
+    // For API clients
+    if (req.accepts('json')) {
+      return res.status(statusCode).json({
+        success: false,
+        message: message, // Keep for backward compatibility
+        msg: message,    // Add this line to match frontend expectations
+        ...(process.env.NODE_ENV !== 'production' && { error: err.toString() })
+      });
+    }
+    
+    // For browser redirects
+    const loginUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/login?verificationError=${encodeURIComponent(message)}`;
+    res.redirect(loginUrl);
   }
 };
 
@@ -238,14 +403,77 @@ const login = async (req, res) => {
     });
   }
 
-  const { email, password } = req.body;
+  const { email, username, password } = req.body;
+
+  // Log the complete incoming request for debugging
+  console.log('=== LOGIN REQUEST ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.originalUrl);
+  console.log('Request body:', JSON.stringify({
+    email: email ? 'present' : 'missing',
+    username: username ? 'present' : 'missing',
+    password: password ? 'present' : 'missing'
+  }, null, 2));
+  console.log('====================');
+
+  // Check if either email or username is provided
+  const loginIdentifier = email || username;
+  const isEmail = email && typeof email === 'string' && email.includes('@');
+  
+  if (!loginIdentifier || typeof loginIdentifier !== 'string') {
+    return res.status(400).json({
+      success: false,
+      message: 'Email or username is required',
+      error: 'No login identifier provided',
+      received: { email, username },
+      type: { email: typeof email, username: typeof username }
+    });
+  }
+  
+  // Log the login attempt with identifier type
+  console.log(`Login attempt with ${isEmail ? 'email' : 'username'}:`, loginIdentifier);
+
+  // Validate password is present
+  if (!password) {
+    const errorMessage = 'Password is required';
+    console.error('Login validation error:', errorMessage);
+    return res.status(400).json({
+      success: false,
+      message: errorMessage,
+      error: errorMessage
+    });
+  }
 
   try {
+    console.log('Login attempt for email:', email);
+    
+    // Normalize email to lowercase for case-insensitive matching
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    console.log('Normalized email for login:', normalizedEmail);
+    
+    // Build the query based on whether we have an email or username
+    const query = isEmail 
+      ? { email: { $regex: new RegExp(`^${loginIdentifier}$`, 'i') } }
+      : { username: loginIdentifier };
+    
     // Check if user exists in either collection
     const [user, unverifiedUser] = await Promise.all([
-      User.findOne({ email }).select('+password'),
-      UnverifiedUser.findOne({ email }).select('+password')
+      User.findOne(query).select('+password'),
+      UnverifiedUser.findOne(query).select('+password')
     ]);
+    
+    console.log('Login check - User found:', {
+      inUsersCollection: !!user,
+      inUnverifiedUsers: !!unverifiedUser,
+      userVerified: user?.isVerified,
+      userEmail: user?.email,
+      userUsername: user?.username,
+      unverifiedUserEmail: unverifiedUser?.email,
+      unverifiedUsername: unverifiedUser?.username,
+      usingEmailLogin: isEmail,
+      loginIdentifier
+    });
 
     // If user doesn't exist in either collection
     if (!user && !unverifiedUser) {
@@ -288,57 +516,83 @@ const login = async (req, res) => {
         });
       }
 
-      // Check if user is verified
-      if (!user.isVerified) {
-        console.log(`Login attempt with unverified email: ${email}`);
+      // Debug: Log user verification status
+      console.log('User verification status:', {
+        email: user.email,
+        isVerified: user.isVerified,
+        userType: 'User',
+        userId: user._id,
+        userObject: JSON.stringify(user, null, 2) // Log the full user object for debugging
+      });
+
+      // Check if user is verified - using direct property access
+      const isUserVerified = user.isVerified === true || user.isVerified === 'true';
+      
+      if (!isUserVerified) {
+        console.log(`Login attempt with unverified email: ${email}`, {
+          isVerified: user.isVerified,
+          typeOfIsVerified: typeof user.isVerified
+        });
         return res.status(403).json({
           success: false,
           message: 'Please verify your email before logging in',
           unverified: true,
           email: user.email,
-          canResend: true
+          canResend: true,
+          debug: {
+            isVerified: user.isVerified,
+          }
         });
       }
 
-      // Create and return JWT token
+      // Create JWT Payload
       const payload = {
         user: {
           id: user.id,
           email: user.email,
-          username: user.username,
-          isVerified: true
+          username: user.username
         }
       };
 
-      // Generate token with expiration
-      const token = jwt.sign(
+      console.log('JWT Payload:', JSON.stringify(payload, null, 2));
+      console.log('JWT Secret:', process.env.JWT_SECRET ? 'Present' : 'MISSING');
+
+      // Sign token
+      jwt.sign(
         payload,
-        process.env.JWT_SECRET,
-        { expiresIn: '1d' }
-      );
-
-      // Set HTTP-only cookie with the token
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 24 * 60 * 60 * 1000 // 1 day
-      });
-
-      // Remove sensitive data before sending response
-      const userData = user.toObject();
-      delete userData.password;
-      
-      // Send response with user data (excluding sensitive info)
-      res.json({ 
-        success: true,
-        user: {
-          id: userData._id,
-          email: userData.email,
-          username: userData.username,
-          isVerified: true
+        process.env.JWT_SECRET || 'your_jwt_secret_here', // Fallback for testing
+        { expiresIn: '24h' },
+        (err, token) => {
+          if (err) {
+            console.error('JWT Sign Error:', err);
+            return res.status(500).json({ 
+              success: false,
+              message: 'Error generating token',
+              error: err.message
+            });
+          }
+          
+          console.log('Generated Token:', token ? 'Token generated successfully' : 'Token is NULL');
+          
+          // Remove sensitive data before sending response
+          const userData = user.toObject();
+          delete userData.password;
+          
+          const response = { 
+            success: true,
+            token,
+            user: {
+              id: userData._id,
+              email: userData.email,
+              username: userData.username,
+              isVerified: true
+            }
+          };
+          
+          console.log('Sending response:', JSON.stringify(response, null, 2));
+          res.json(response);
         }
-      });
+      );
     }
   } catch (error) {
     console.error('Login error:', {

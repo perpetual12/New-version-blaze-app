@@ -35,16 +35,24 @@ if (!process.env.RESEND_API_KEY) {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Track sent emails for verification
+const sentEmails = [];
+
 const sendEmail = async (options) => {
+  // Generate a unique ID for this email
   const emailId = `email_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+  const startTime = Date.now();
   
-  log(`[${emailId}] Starting email send process`, {
+  // Log the start of the email sending process
+  const logContext = {
+    emailId,
     to: options.to,
     subject: options.subject,
-    from: process.env.EMAIL_FROM,
     hasHtml: !!options.html,
     timestamp: new Date().toISOString()
-  });
+  };
+  
+  log(`[${emailId}] Starting email send process`, logContext);
 
   try {
     if (!options.to) {
@@ -63,23 +71,47 @@ const sendEmail = async (options) => {
       fromAddress = `BlazeTrade <${fromAddress}>`;
     }
     
+    // Prepare email data with proper headers and tracking
     const emailData = {
       from: fromAddress,
       to: Array.isArray(options.to) ? options.to : [options.to],
       subject: options.subject,
       html: options.html,
       // Add plain text version for better deliverability
-      text: options.text || options.subject.replace(/<[^>]*>?/gm, ''), // Remove HTML tags for text version
+      text: options.text || options.subject.replace(/<[^>]*>?/gm, ''),
+      headers: {
+        'X-Entity-Ref-ID': emailId,
+        'X-Environment': process.env.NODE_ENV || 'production',
+        'X-Application': 'BlazeTrade',
+        'X-Email-Type': options.emailType || 'transactional'
+      }
     };
+
+    // Log email data (safely)
+    log(`[${emailId}] Prepared email data`, {
+      to: emailData.to,
+      subject: emailData.subject,
+      hasHtml: !!emailData.html,
+      emailType: options.emailType
+    });
+
+    // Add to sent emails for verification
+    const emailRecord = {
+      id: emailId,
+      to: emailData.to,
+      subject: emailData.subject,
+      sentAt: new Date().toISOString(),
+      status: 'sending'
+    };
+    sentEmails.push(emailRecord);
     
-    console.log('Formatted email data:', JSON.stringify({
-      ...emailData,
-      html: emailData.html ? '[HTML CONTENT]' : undefined // Don't log full HTML
-    }, null, 2));
+    // Send email with timeout
+    const emailPromise = resend.emails.send(emailData);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Email sending timeout')), 15000) // 15 second timeout
+    );
 
-    console.log('Sending email with data:', JSON.stringify(emailData, null, 2));
-
-    const { data, error } = await resend.emails.send(emailData);
+    const { data, error } = await Promise.race([emailPromise, timeoutPromise]);
 
     if (error) {
       const errorDetails = {
