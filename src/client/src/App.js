@@ -59,6 +59,7 @@ const Layout = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/verify-email/:token" element={<EmailVerification />} />
+          <Route path="/verify-email/success" element={<EmailVerification />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
         </Routes>
       </motion.main>

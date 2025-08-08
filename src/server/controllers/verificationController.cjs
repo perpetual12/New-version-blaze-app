@@ -121,9 +121,12 @@ exports.verifyEmail = async (req, res) => {
       }
     })();
     
-    // Redirect to the verification success page
-    const clientUrl = process.env.CLIENT_URL || 'https://blazetrade.de';
-    return res.redirect(`${clientUrl}/verification-success`);
+    // Return success response - frontend will handle the redirection
+    return res.status(200).json({
+      success: true,
+      message: 'Email verified successfully!',
+      token: token
+    });
   } catch (error) {
     console.error('Verification error:', error);
     res.status(500).json({
