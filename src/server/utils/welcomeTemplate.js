@@ -61,7 +61,8 @@ const getVerificationEmailTemplate = (fullName, verificationToken, logoUrl) => {
   const baseUrl = 'https://blazetrade.de';
   // Ensure we have a fallback for the logo URL
   const logo = logoUrl || 'https://blazetrade.de/logo.png';
-  const verificationUrl = `${baseUrl}/verify-email/${verificationToken}`;
+  // Update the verification URL to include /api prefix to match the route
+  const verificationUrl = `${baseUrl}/api/verify-email/${verificationToken}`;
   return `
     <!DOCTYPE html>
     <html lang="en">

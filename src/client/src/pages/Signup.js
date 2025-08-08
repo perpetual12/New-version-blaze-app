@@ -20,7 +20,9 @@ const Signup = () => {
       setExistingUser({ email: '', username: '' });
       
       console.log('Sending signup request with data:', data);
-      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/signup`;
+      // Ensure we don't get double /api in the URL
+      const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:5001').replace(/\/$/, '');
+      const apiUrl = `${baseUrl}/api/auth/signup`;
       console.log('API URL:', apiUrl);
       
       const response = await axios({

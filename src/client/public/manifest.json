@@ -1,6 +1,13 @@
 {
-  "short_name": "BlazeTrad",
-  "name": "BlazeTrad - Bitcoin Exchange & Trading",
+  "short_name": "BlazeTrade",
+  "name": "BlazeTrade | Secure Bitcoin & Cryptocurrency Exchange",
+  "description": "Buy, sell, and trade Bitcoin and other cryptocurrencies with low fees and high security on BlazeTrade.",
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "background_color": "#0a2351",
+  "theme_color": "#0a2351",
   "icons": [
     {
       "src": "favicon.ico",
@@ -17,9 +24,5 @@
       "type": "image/png",
       "sizes": "512x512"
     }
-  ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#0a2351",
-  "background_color": "#ffffff"
+  ]
 }

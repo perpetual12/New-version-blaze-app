@@ -1,34 +1,61 @@
 // 🔴 DEBUG: Start of file
 console.log("✅ 1. server.cjs is being executed");
+console.log("🔍 Process working directory:", process.cwd());
 
 // Load required modules
 const path = require('path');
 const dotenv = require('dotenv');
-
-// Load environment variables from .env
-console.log("📁 Current working directory:", process.cwd());
-const envPath = path.resolve(process.cwd(), '.env');
-console.log("🔍 Looking for .env at:", envPath);
-
-const result = dotenv.config({ path: envPath });
-
-if (result.error) {
-  console.error("❌ dotenv error:", result.error);
-  process.exit(1);
-} else {
-  console.log("✅ 2. dotenv loaded successfully");
-}
-
-// Check for MONGO_URI
-console.log("🔐 MONGO_URI =", process.env.MONGO_URI);
-if (!process.env.MONGO_URI) {
-  console.error("🚨 FATAL ERROR: MONGO_URI is not defined in your .env file.");
-  process.exit(1);
-}
-
-// Load Express and other dependencies
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
+
+console.log("✅ Core modules loaded successfully");
+
+// Log Node.js version and environment
+console.log("\n🔧 Environment Information:");
+console.log("   Node.js version:", process.version);
+console.log("   NODE_ENV:", process.env.NODE_ENV || 'development');
+console.log("   Platform:", process.platform);
+console.log("   Architecture:", process.arch);
+
+// List files in current directory
+try {
+  console.log("\n📂 Current directory files:", require('fs').readdirSync('.').join(', '));
+} catch (err) {
+  console.error("❌ Could not read directory:", err);
+}
+
+// Load environment variables from .env
+console.log("\n🔍 Loading environment variables...");
+console.log("   Looking for .env in:", process.cwd());
+
+const envPath = path.resolve(process.cwd(), '.env');
+console.log("   Full .env path:", envPath);
+
+try {
+  const result = dotenv.config({ path: envPath });
+  if (result.error) {
+    console.error("❌ dotenv error:", result.error);
+    process.exit(1);
+  }
+  console.log("✅ .env loaded successfully");
+  
+  // Log important environment variables (mask sensitive ones)
+  console.log("\n🔧 Environment Variables:");
+  console.log("   NODE_ENV:", process.env.NODE_ENV || 'development');
+  console.log("   PORT:", process.env.PORT || '5001');
+  console.log("   CLIENT_URL:", process.env.CLIENT_URL || 'Not set');
+  console.log("   SERVER_URL:", process.env.SERVER_URL || 'Not set');
+  console.log("   MONGO_URI:", process.env.MONGO_URI ? 'Set' : 'Not set');
+  
+  if (!process.env.MONGO_URI) {
+    console.error("🚨 FATAL ERROR: MONGO_URI is not defined in your .env file.");
+    process.exit(1);
+  }
+} catch (error) {
+  console.error("❌ Error loading .env:", error);
+  process.exit(1);
+}
 
 // Connect to database
 const connectDB = require('./config/db.cjs');
@@ -84,6 +111,17 @@ app.use('/api/auth', require('./routes/auth.cjs'));
 app.use('/api', require('./routes/verification.cjs')); 
 app.use('/api/chatbot', require('./routes/chatbotRoutes.cjs'));
 app.use('/api/contact', require('./routes/contactRoutes.cjs'));
+
+// Test endpoint for debugging
+app.get('/api/test/logging', (req, res) => {
+  console.log('✅ Test log message from /api/test/logging');
+  console.log('Request headers:', req.headers);
+  res.json({ 
+    success: true, 
+    message: 'Test endpoint working',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Test verification route (temporary)
 app.get('/api/test/verification-status', testVerification);

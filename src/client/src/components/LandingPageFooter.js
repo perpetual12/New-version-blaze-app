@@ -1,5 +1,7 @@
 import React from 'react';
-import { FaInstagram, FaEnvelope, FaPhone, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaEnvelope, FaPhone, FaMapMarkerAlt, FaFacebook, FaInstagram } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
+import { FaWhatsapp } from 'react-icons/fa';
 import blazeTradeLogo from '../assets/blazetrade-logo.png';
 
 const LandingPageFooter = () => {
@@ -36,20 +38,57 @@ const LandingPageFooter = () => {
             </ul>
           </div>
 
-          {/* Location & Social */}
+          {/* Location */}
           <div>
-            <h3 className="text-lg font-semibold mb-3">Find Us</h3>
+            <h3 className="text-lg font-semibold mb-3">Our Location</h3>
             <ul className="space-y-2 text-gray-300">
               <li className="flex items-center justify-center md:justify-start">
-                <FaMapMarkerAlt className="mr-2" />
+                <FaMapMarkerAlt className="mr-2 flex-shrink-0 mt-1" />
                 <span>Victoria Island, Lagos, Nigeria</span>
               </li>
             </ul>
-            <div className="mt-4">
-                <a href="https://instagram.com/blaze__trade?igsh=M3Y4cmhoNXRO" target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-gray-300 hover:text-accent">
-                    <FaInstagram className="mr-2" />
-                    @blaze__trade
-                </a>
+          </div>
+
+          {/* Social Media */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Connect With Us</h3>
+            <div className="flex space-x-4 justify-center md:justify-start">
+              <a 
+                href="https://www.facebook.com/share/1CZvtKCKad/?mibextid=wwXIfr" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-blue-600 transition-colors"
+                aria-label="Facebook"
+              >
+                <FaFacebook className="w-6 h-6" />
+              </a>
+              <a 
+                href="https://x.com/blaze__trade?s=21&t=2UqGnv0T5B_fMjkwyAIrnw" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+                aria-label="Twitter"
+              >
+                <FaXTwitter className="w-6 h-6" />
+              </a>
+              <a 
+                href="https://www.instagram.com/blaze__trade/?igsh=M3Y4cmhoNXRO" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-pink-600 transition-colors"
+                aria-label="Instagram"
+              >
+                <FaInstagram className="w-6 h-6" />
+              </a>
+              <a 
+                href="https://wa.me/2348163309355" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-green-500 transition-colors"
+                aria-label="WhatsApp"
+              >
+                <FaWhatsapp className="w-6 h-6" />
+              </a>
             </div>
           </div>
 

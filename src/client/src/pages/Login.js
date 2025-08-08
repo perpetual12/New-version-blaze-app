@@ -56,7 +56,9 @@ const Login = () => {
     console.log('Prepared request data:', requestData);
     
     try {
-      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/login`;
+      // Ensure we don't get double /api in the URL
+      const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:5001').replace(/\/$/, '');
+      const apiUrl = `${baseUrl}/api/auth/login`;
       console.log('API URL:', apiUrl);
       
       console.log('Sending login request to:', apiUrl);

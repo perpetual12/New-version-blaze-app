@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaTelegram, FaPhone, FaMapMarkerAlt, FaInstagram, FaWhatsapp } from 'react-icons/fa';
+import { FaPhone, FaMapMarkerAlt, FaInstagram, FaWhatsapp, FaFacebook } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
 import blazeTradeLogo from '../assets/blazetrade-logo.png';
 import qrCodeImage from '../assets/images/qr-code.jpg';
 
@@ -21,9 +22,10 @@ const Footer = () => {
               Your trusted partner for Bitcoin exchange and trading services. We provide secure, reliable, and professional cryptocurrency solutions.
             </p>
             <div className="flex space-x-4">
-              <SocialIcon icon={<FaInstagram />} href="https://instagram.com/blaze__trade?igsh=M3Y4cmhoNXRO" />
-              <SocialIcon icon={<FaWhatsapp />} href="https://wa.me/+2348163309355" />
-              <SocialIcon icon={<FaTelegram />} href="https://t.me/blazetrad" />
+              <SocialIcon icon={<FaFacebook />} href="https://www.facebook.com/share/1CZvtKCKad/?mibextid=wwXIfr" />
+              <SocialIcon icon={<FaXTwitter />} href="https://x.com/blaze__trade?s=21&t=2UqGnv0T5B_fMjkwyAIrnw" />
+              <SocialIcon icon={<FaInstagram />} href="https://www.instagram.com/blaze__trade/?igsh=M3Y4cmhoNXRO" />
+              <SocialIcon icon={<FaWhatsapp />} href="https://wa.me/2348163309355" />
             </div>
           </div>
 
@@ -69,11 +71,51 @@ const Footer = () => {
           {/* Follow Us */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Follow Us</h3>
-            <p className="text-gray-300 mb-4">Stay updated with our latest news and offers on our official Instagram page.</p>
-            <a href="https://instagram.com/blaze__trade?igsh=M3Y4cmhoNXRO" target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-accent hover:text-white transition-colors">
-              <FaInstagram className="mr-2" />
-              @blaze__trade
-            </a>
+            <p className="text-gray-300 mb-4">Stay connected with us for the latest updates, market insights, and exclusive offers.</p>
+            <div className="flex space-x-4 mb-4">
+              <a 
+                href="https://www.facebook.com/share/1CZvtKCKad/?mibextid=wwXIfr" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-blue-600 transition-colors"
+                aria-label="Facebook"
+              >
+                <FaFacebook className="w-6 h-6" />
+              </a>
+              <a 
+                href="https://x.com/blaze__trade?s=21&t=2UqGnv0T5B_fMjkwyAIrnw" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+                aria-label="Twitter"
+              >
+                <FaXTwitter className="w-6 h-6" />
+              </a>
+              <a 
+                href="https://www.instagram.com/blaze__trade/?igsh=M3Y4cmhoNXRO" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-pink-600 transition-colors"
+                aria-label="Instagram"
+              >
+                <FaInstagram className="w-6 h-6" />
+              </a>
+              <a 
+                href="https://wa.me/2348163309355" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-green-500 transition-colors"
+                aria-label="WhatsApp"
+              >
+                <FaWhatsapp className="w-6 h-6" />
+              </a>
+            </div>
+            <div className="flex items-center text-gray-300">
+              <FaPhone className="mr-2 text-sm" />
+              <a href="tel:+2348163309355" className="hover:text-accent transition-colors">
+                +234 816 330 9355
+              </a>
+            </div>
           </div>
         </div>
 

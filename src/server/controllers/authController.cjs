@@ -10,17 +10,52 @@ const { getWelcomeEmailTemplate, getVerificationEmailTemplate } = require('../ut
 
 // Helper function to send verification email
 const sendVerificationEmail = async (email, username, verificationToken) => {
-  const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
-  const logoUrl = `${process.env.SERVER_URL || 'http://localhost:3000'}/logo.png`;
-  
-  const emailHtml = getVerificationEmailTemplate(username, verificationUrl, logoUrl);
-  
-  await sendEmail({
-    to: email,
-    subject: 'Verify Your BlazeTrade Account',
-    html: emailHtml,
-    text: `Hello ${username}, please verify your email by clicking this link: ${verificationUrl}`
-  });
+  try {
+    const verificationUrl = `${process.env.CLIENT_URL || 'https://blazetrade.de'}/api/verify-email/${verificationToken}`;
+    const logoUrl = `${process.env.SERVER_URL || 'https://blazetrade.de'}/logo.png`;
+    
+    // Log the verification email details
+    console.log('📧 Sending verification email:', JSON.stringify({
+      event: 'verification_email_send_attempt',
+      email,
+      username,
+      verificationToken: `${verificationToken.substring(0, 8)}...`, // Log first 8 chars for security
+      verificationUrl,
+      timestamp: new Date().toISOString()
+    }, null, 2));
+    
+    const emailHtml = getVerificationEmailTemplate(username, verificationUrl, logoUrl);
+    
+    const emailResult = await sendEmail({
+      to: email,
+      subject: 'Verify Your BlazeTrade Account',
+      html: emailHtml,
+      text: `Hello ${username}, please verify your email by clicking this link: ${verificationUrl}`,
+      emailType: 'verification'
+    });
+    
+    console.log('✅ Verification email sent successfully:', JSON.stringify({
+      event: 'verification_email_sent',
+      email,
+      username,
+      messageId: emailResult.messageId,
+      timestamp: new Date().toISOString()
+    }, null, 2));
+    
+    return emailResult;
+  } catch (error) {
+    console.error('❌ Error in sendVerificationEmail:', JSON.stringify({
+      event: 'verification_email_error',
+      email,
+      username,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    }, null, 2));
+    
+    // Re-throw the error to be handled by the calling function
+    throw error;
+  }
 };
 
 // @desc    Register a new user
@@ -35,6 +70,7 @@ const signup = async (req, res) => {
     hasPassword: !!password,
     fullName 
   });
+  
   const session = await mongoose.startSession();
   
   try {
@@ -72,46 +108,29 @@ const signup = async (req, res) => {
       // Save unverified user
       await unverifiedUser.save({ session });
 
-      // Send verification email with the original (unhashed) token
-      (async () => {
-        try {
-          console.log('Sending verification email to:', email, 'with token:', verificationToken);
-          const logoUrl = `${process.env.SERVER_URL || 'http://localhost:3000'}/logo.png`;
-          
-          // Construct the verification URL
-          const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
-          
-          // Pass the raw token to the template function
-          const emailHtml = getVerificationEmailTemplate(
-            fullName || username,
-            verificationToken,
-            logoUrl
-          );
-          
-          console.log(`Sending verification email to ${email}`);
-          console.log('Verification token being used:', verificationToken);
-          console.log('Verification URL:', verificationUrl);
-          
-          await sendEmail({
-            to: email,
-            subject: 'Verify Your BlazeTrade Account',
-            html: emailHtml,
-            text: `Hello ${fullName || username}, please verify your email by clicking this link: ${verificationUrl}`
-          });
-          
-          console.log(`Verification email sent to ${email}`);
-        } catch (err) {
-          console.error('Error sending verification email:', {
-            email,
-            error: err.message,
-            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-          });
-          // In production, you might want to add this to a retry queue
-        }
-      })();
-    });
+      // Log verification email process
+      console.log('📧 Starting verification email process for new signup:', JSON.stringify({
+        event: 'signup_verification_email_start',
+        email,
+        username,
+        timestamp: new Date().toISOString(),
+        verificationToken: verificationToken.substring(0, 8) + '...' // First 8 chars for security
+      }, null, 2));
 
-    // If we get here, the transaction was successful
+      // Use the sendVerificationEmail helper function which has proper error handling
+      await sendVerificationEmail(email, fullName || username, verificationToken);
+      
+      console.log('✅ Signup process completed, verification email sent:', JSON.stringify({
+        event: 'signup_complete',
+        email,
+        username,
+        timestamp: new Date().toISOString()
+      }, null, 2));
+    });
+    
+    // Commit the transaction
+    await session.commitTransaction();
+    
     res.status(201).json({
       success: true,
       message: 'Registration successful! Please check your email to verify your account.'
@@ -276,6 +295,25 @@ const verifyEmail = async (req, res) => {
     session.endSession();
 
     console.log('Verification successful for user:', unverifiedUser.email);
+    
+    // Send welcome email in the background (don't await to avoid blocking the response)
+    try {
+      const logoUrl = `${process.env.SERVER_URL || 'https://blazetrade.de'}/logo.png`;
+      const welcomeHtml = getWelcomeEmailTemplate(newUser.fullName || newUser.username, logoUrl);
+      
+      console.log('Sending welcome email to:', newUser.email);
+      await sendEmail({
+        to: newUser.email,
+        subject: 'Welcome to BlazeTrade!',
+        html: welcomeHtml,
+        text: `Welcome to BlazeTrade, ${newUser.fullName || newUser.username}! Thank you for verifying your email. You can now log in and start trading.`,
+        emailType: 'welcome'
+      });
+      console.log('Welcome email sent successfully to:', newUser.email);
+    } catch (emailError) {
+      // Log but don't fail the verification if welcome email fails
+      console.error('Error sending welcome email:', emailError);
+    }
     
     // For API clients
     if (req.accepts('json')) {

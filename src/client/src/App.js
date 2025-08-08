@@ -13,6 +13,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import LandingPage from './pages/LandingPage';
 import CheckEmail from './pages/CheckEmail';
 import EmailVerification from './pages/EmailVerification';
+import ResetPassword from './pages/ResetPassword';
 
 // Components
 import Navbar from './components/Navbar';
@@ -58,6 +59,7 @@ const Layout = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/verify-email/:token" element={<EmailVerification />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
         </Routes>
       </motion.main>
       {!isAuthPage && <Chatbot />}

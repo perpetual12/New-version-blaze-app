@@ -8,33 +8,60 @@ const testEmail = async (req, res) => {
     const testId = uuidv4().substring(0, 8);
     
     try {
-        const logoUrl = `${process.env.SERVER_URL || 'http://localhost:3000'}/logo.png`;
+        console.log(`\n📧 [TEST-${testId}] Starting test email to: ${testEmail}`);
+        
+        // Log environment variables (safely)
+        console.log(`[TEST-${testId}] Environment check:`, {
+            NODE_ENV: process.env.NODE_ENV,
+            SERVER_URL: process.env.SERVER_URL,
+            EMAIL_FROM: process.env.EMAIL_FROM,
+            RESEND_API_KEY: process.env.RESEND_API_KEY ? '***' + process.env.RESEND_API_KEY.slice(-4) : 'NOT SET'
+        });
+        
+        const logoUrl = `${process.env.SERVER_URL || 'https://blazetrade.de'}/logo.png`;
+        console.log(`[TEST-${testId}] Using logo URL:`, logoUrl);
+        
+        console.log(`[TEST-${testId}] Generating welcome email template...`);
         const emailHtml = getWelcomeEmailTemplate('Test User', logoUrl);
         
-        console.log(`\n📧 [TEST-${testId}] Sending test email to: ${testEmail}`);
-        
-        await sendEmail({
+        console.log(`[TEST-${testId}] Sending test welcome email...`);
+        const emailResult = await sendEmail({
             to: testEmail,
-            subject: `Test Email from BlazeTrade (${testId})`,
+            subject: `Test Welcome Email from BlazeTrade (${testId})`,
             html: emailHtml,
-            text: 'This is a test email from BlazeTrade',
-            emailType: 'test'
+            text: 'This is a test welcome email from BlazeTrade.',
+            emailType: 'test_welcome'
+        });
+        
+        console.log(`[TEST-${testId}] Test email sent successfully:`, {
+            email: testEmail,
+            timestamp: new Date().toISOString(),
+            result: emailResult
         });
         
         res.status(200).json({
             success: true,
             message: 'Test email sent successfully',
             testId,
-            email: testEmail
+            email: testEmail,
+            timestamp: new Date().toISOString()
         });
         
     } catch (error) {
-        console.error(`❌ [TEST-${testId}] Failed to send test email:`, error);
+        const errorDetails = {
+            testId,
+            email: testEmail,
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+            timestamp: new Date().toISOString()
+        };
+        
+        console.error(`❌ [TEST-${testId}] Failed to send test email:`, errorDetails);
+        
         res.status(500).json({
             success: false,
             message: 'Failed to send test email',
-            error: error.message,
-            testId
+            ...errorDetails
         });
     }
 };

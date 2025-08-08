@@ -49,54 +49,81 @@ exports.verifyEmail = async (req, res) => {
       UnverifiedUser.findByIdAndDelete(unverifiedUser._id)
     ]);
 
-    // Send welcome email in the background
+    // Log successful user verification
+    console.log('✅ User verified successfully:', JSON.stringify({
+      event: 'user_verified',
+      userId: user._id,
+      email: user.email,
+      username: user.username,
+      timestamp: new Date().toISOString(),
+      verificationToken: hashedToken
+    }, null, 2));
+
+    // Send welcome email in the background with better error handling
     (async () => {
       try {
-        const logoUrl = `${process.env.SERVER_URL || 'http://localhost:3000'}/logo.png`;
+        const welcomeEmailId = `welcome_${Date.now()}`;
+        const welcomeEmailInfo = {
+          event: 'welcome_email_send_attempt',
+          emailId: welcomeEmailId,
+          userId: user._id,
+          email: user.email,
+          username: user.username,
+          timestamp: new Date().toISOString()
+        };
+
+        console.log('📧 Starting welcome email process:', JSON.stringify(welcomeEmailInfo, null, 2));
+        
+        const logoUrl = `${process.env.SERVER_URL || 'https://blazetrade.de'}/logo.png`;
         const contactEmail = process.env.CONTACT_EMAIL || 'blazetrade@blazetrade.de';
+        
         const emailHtml = getWelcomeEmailTemplate(
           user.fullName || user.username,
           logoUrl,
           contactEmail
         );
         
-        console.log(`Sending welcome email to ${user.email}`);
-        
-        await sendEmail({
+        const emailResult = await sendEmail({
           to: user.email,
           subject: 'Welcome to BlazeTrade!',
           html: emailHtml,
-          text: `Welcome to BlazeTrade, ${user.fullName || user.username}! We're excited to have you on board.`
+          text: `Welcome to BlazeTrade, ${user.fullName || user.username}! We're excited to have you on board.`,
+          emailType: 'welcome'
         });
         
-        console.log(`Welcome email sent to ${user.email}`);
+        const successInfo = {
+          ...welcomeEmailInfo,
+          event: 'welcome_email_sent',
+          status: 'success',
+          messageId: emailResult.messageId,
+          sentAt: new Date().toISOString(),
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log('✅ Welcome email sent successfully:', JSON.stringify(successInfo, null, 2));
+        
       } catch (err) {
-        console.error('Error sending welcome email:', {
-          email: user.email,
+        const errorInfo = {
+          ...welcomeEmailInfo,
+          event: 'welcome_email_failed',
+          status: 'error',
           error: err.message,
-          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-        });
+          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+          timestamp: new Date().toISOString()
+        };
+        
+        console.error('❌ Error sending welcome email:', JSON.stringify(errorInfo, null, 2));
+        
         // In production, you might want to add this to a retry queue
+        if (process.env.NODE_ENV === 'production') {
+          // Example: addToRetryQueue('welcome_email', { userId: user._id, email: user.email });
+        }
       }
     })();
-
-    // Generate JWT token
-    const payload = {
-      user: {
-        id: user.id,
-        isVerified: true
-      }
-    };
-
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token, user: { ...user._doc, password: undefined } });
-      }
-    );
+    
+    // Redirect to the verification success page
+    const clientUrl = process.env.CLIENT_URL || 'https://blazetrade.de';
+    return res.redirect(`${clientUrl}/verification-success`);
   } catch (error) {
     console.error('Verification error:', error);
     res.status(500).json({
@@ -160,19 +187,50 @@ exports.resendVerification = async (req, res) => {
     await unverifiedUser.save();
 
     try {
-      // Send verification email
+      // Send verification email with detailed logging
+    const verificationUrl = `${process.env.CLIENT_URL || 'https://blazetrade.de'}/api/verify-email/${unverifiedUser.verificationToken}`;
+    const verificationEmailInfo = {
+      to: unverifiedUser.email,
+      username: unverifiedUser.username,
+      verificationToken: unverifiedUser.verificationToken,
+      verificationUrl: verificationUrl,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('📧 Sending verification email:', JSON.stringify({
+      event: 'verification_email_send_attempt',
+      ...verificationEmailInfo,
+      tokenPreview: `${unverifiedUser.verificationToken.substring(0, 8)}...`,
+      expiresAt: new Date(unverifiedUser.verificationExpires).toISOString()
+    }, null, 2));
       await sendVerificationEmail(
         unverifiedUser.email,
         unverifiedUser.username,
         unverifiedUser.verificationToken
       );
 
+      console.log('✅ Verification email sent successfully:', JSON.stringify({
+        event: 'verification_email_sent',
+        ...verificationEmailInfo,
+        status: 'success',
+        sentAt: new Date().toISOString()
+      }, null, 2));
+
       res.status(200).json({
         success: true,
-        message: 'Verification email resent. Please check your inbox (and spam folder).'
+        message: 'Verification email resent. Please check your inbox (and spam folder).',
+        email: unverifiedUser.email
       });
     } catch (emailError) {
-      console.error('Error sending verification email:', emailError);
+      const errorDetails = {
+        event: 'verification_email_failed',
+        ...verificationEmailInfo,
+        error: emailError.message,
+        stack: process.env.NODE_ENV === 'development' ? emailError.stack : undefined,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.error('❌ Error sending verification email:', JSON.stringify(errorDetails, null, 2));
       
       // Reset the lastResendAttempt if email sending fails
       unverifiedUser.lastResendAttempt = undefined;
@@ -180,7 +238,8 @@ exports.resendVerification = async (req, res) => {
 
       res.status(500).json({
         success: false,
-        message: 'Failed to send verification email. Please try again later.'
+        message: 'Failed to send verification email. Please try again later.',
+        email: unverifiedUser.email
       });
     }
   } catch (error) {
