@@ -11,8 +11,14 @@ const EmailVerification = () => {
   const [message, setMessage] = useState('Verifying your email address...');
   const effectRan = useRef(false);
   
-  // Get the token from URL params or search params
-  const verificationToken = token || searchParams.get('token');
+  // Get the token from URL params or search params and clean it up
+  const getCleanToken = (token) => {
+    if (!token) return null;
+    // Remove any URL parts and get just the token
+    return token.split('/').pop().split('?')[0];
+  };
+  
+  const verificationToken = getCleanToken(token || searchParams.get('token'));
 
   useEffect(() => {
     if (effectRan.current === false && verificationToken) {
